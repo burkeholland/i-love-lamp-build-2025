@@ -2,8 +2,11 @@ import { useState, useCallback, useEffect } from 'react'
 import type { Engine } from "tsparticles-engine";
 import Particles from "react-tsparticles";
 import { loadSlim } from "tsparticles-slim";
-import { lifxApi } from './services/lifx';
+import { lifxApi, type BreatheEffect } from './services/lifx';
+import { BreatheControls } from './components/BreatheControls';
 import './App.css'
+
+const ENABLE_BREATHE = import.meta.env.VITE_ENABLE_BREATHE_EFFECT !== 'false';
 
 interface LampState {
   power: boolean;
@@ -26,6 +29,7 @@ function App() {
   });
   const [error, setError] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [showBreatheControls, setShowBreatheControls] = useState(false);
 
   // Load initial state
   useEffect(() => {
@@ -81,6 +85,15 @@ function App() {
       setError('');
     } catch (err) {
       setError('Failed to change color');
+    }
+  };
+
+  const startBreatheEffect = async (effect: BreatheEffect) => {
+    try {
+      await lifxApi.breathe(effect);
+      setError('');
+    } catch (err) {
+      setError('Failed to start breathe effect');
     }
   };
 
@@ -192,7 +205,21 @@ function App() {
               {/* Color Control */}
               <div className={`p-6 rounded-2xl bg-white/5 backdrop-blur-lg border border-white/10
                 ${lampState.power ? 'opacity-100' : 'opacity-50'}`}>
-                <label className="block mb-4 text-purple-200">Color</label>
+                <div className="flex justify-between items-center mb-4">
+                  <label className="text-purple-200">Color</label>
+                  {ENABLE_BREATHE && (
+                    <button
+                      onClick={() => setShowBreatheControls(true)}
+                      disabled={!lampState.power}
+                      className="px-3 py-1 text-sm rounded-lg bg-purple-500/20 
+                        hover:bg-purple-500/30 border border-purple-500/30
+                        disabled:opacity-50 disabled:cursor-not-allowed
+                        transition-all duration-300"
+                    >
+                      ✨ Breathe
+                    </button>
+                  )}
+                </div>
 
                 {/* Custom Color Picker */}
                 <div className="mb-6">
@@ -226,6 +253,15 @@ function App() {
                 </div>
               </div>
             </div>
+
+            {ENABLE_BREATHE && (
+              <BreatheControls
+                isOpen={showBreatheControls}
+                onClose={() => setShowBreatheControls(false)}
+                currentColor={lampState.color}
+                onStart={startBreatheEffect}
+              />
+            )}
           </>
         )}
       </div>

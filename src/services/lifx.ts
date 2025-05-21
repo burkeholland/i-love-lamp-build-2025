@@ -1,17 +1,5 @@
-const LIFX_API_BASE = 'https://api.lifx.com/v1';
+const API_BASE = '/api/VibeTriggers';
 const DEFAULT_SELECTOR = 'label:Vibes';
-
-// Get the API token from environment variables
-const LIFX_TOKEN = import.meta.env.VITE_LIFX_API_TOKEN;
-
-if (!LIFX_TOKEN) {
-    console.error('LIFX API token not found. Please set VITE_LIFX_API_TOKEN in your .env file');
-}
-
-const headers = {
-    'Authorization': `Bearer ${LIFX_TOKEN}`,
-    'Content-Type': 'application/json'
-};
 
 export interface LightState {
     power: 'on' | 'off';
@@ -19,33 +7,28 @@ export interface LightState {
     color: string;
 }
 
+export interface BreatheEffect {
+    color?: string;        // The color to use for the effect
+    from_color?: string;   // Start from this color
+    period?: number;       // Time in seconds for one cycle
+    cycles?: number;       // Number of times to repeat
+    persist?: boolean;     // Keep the last effect color
+    power_on?: boolean;    // Turn on the light if it's off
+    peak?: number;         // Defines where in a period the target color is at its maximum
+}
+
 export const lifxApi = {
     async getLights(selector: string = DEFAULT_SELECTOR) {
-        const response = await fetch(`${LIFX_API_BASE}/lights/${selector}`, { headers });
+        const response = await fetch(`${API_BASE}?action=getLights&selector=${encodeURIComponent(selector)}`);
         if (!response.ok) throw new Error('Failed to fetch lights');
         return response.json();
     },
 
     async setState(state: Partial<LightState>, selector: string = DEFAULT_SELECTOR) {
-        const payload: any = {};
-
-        if ('power' in state) {
-            payload.power = state.power;
-        }
-
-        if ('brightness' in state && typeof state.brightness === 'number') {
-            payload.brightness = state.brightness / 100; // Convert from percentage to 0-1
-        }
-
-        if ('color' in state) {
-            // Convert hex to hue, saturation, brightness
-            payload.color = state.color;
-        }
-
-        const response = await fetch(`${LIFX_API_BASE}/lights/${selector}/state`, {
-            method: 'PUT',
-            headers,
-            body: JSON.stringify(payload)
+        const response = await fetch(`${API_BASE}?action=setState&selector=${encodeURIComponent(selector)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(state)
         });
 
         if (!response.ok) throw new Error('Failed to set light state');
@@ -53,11 +36,26 @@ export const lifxApi = {
     },
 
     async togglePower(selector: string = DEFAULT_SELECTOR) {
-        const response = await fetch(`${LIFX_API_BASE}/lights/${selector}/toggle`, {
-            method: 'POST',
-            headers
+        const response = await fetch(`${API_BASE}?action=togglePower&selector=${encodeURIComponent(selector)}`, {
+            method: 'POST'
         });
         if (!response.ok) throw new Error('Failed to toggle power');
+        return response.json();
+    },
+
+    async breathe(options: BreatheEffect = {}, selector: string = DEFAULT_SELECTOR) {
+        const response = await fetch(`${API_BASE}?action=breathe&selector=${encodeURIComponent(selector)}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(options)
+        });
+
+        if (!response.ok) {
+            if (response.status === 400) {
+                throw new Error('Breathe effect is disabled');
+            }
+            throw new Error('Failed to apply breathe effect');
+        }
         return response.json();
     }
 };
